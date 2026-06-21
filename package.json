@@ -1,0 +1,18 @@
+{
+  "name": "nha-trang-exchange",
+  "version": "1.0.0",
+  "description": "Telegram Mini App для обмена валюты в Нячанге",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "grammy": "^1.21.1",
+    "express": "^4.19.2",
+    "dotenv": "^16.4.5",
+    "cors": "^2.8.5",
+    "nanoid": "^3.3.7"
+  }
+}
