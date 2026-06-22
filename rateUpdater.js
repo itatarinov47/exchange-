@@ -1,10 +1,11 @@
 const storage = require('./storage');
 
-// Бесплатный открытый источник курсов (без ключа, без регистрации).
-// Возвращает курсы относительно USD для множества валют, включая VND.
+// Источник курсов для обычных (фиатных) валют.
 const RATES_API_URL = 'https://open.er-api.com/v6/latest/USD';
 
-// Округление: для крупных значений (>100) — до целого, иначе до 1 знака после запятой.
+// Источник курсов для криптовалют — отдаёт цену прямо в VND, без кросс-расчёта.
+const CRYPTO_API_URL = (ids) => `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=vnd`;
+
 function roundRate(value) {
   return value > 100 ? Math.round(value) : Math.round(value * 10) / 10;
 }
@@ -21,6 +22,15 @@ async function fetchMidRates() {
   return data.rates;
 }
 
+async function fetchCryptoRates(coingeckoIds) {
+  if (coingeckoIds.length === 0) return {};
+  const res = await fetch(CRYPTO_API_URL(coingeckoIds.join(',')));
+  if (!res.ok) {
+    throw new Error(`Источник криптокурсов ответил с ошибкой: ${res.status}`);
+  }
+  return res.json();
+}
+
 function vndPerUnit(ratesUSD, code) {
   if (code === 'USD') return ratesUSD.VND;
   const rateToUsd = ratesUSD[code];
@@ -31,17 +41,36 @@ function vndPerUnit(ratesUSD, code) {
 async function updateRatesNow() {
   const config = storage.getConfig();
   const ratesData = storage.getRates();
-  const ratesUSD = await fetchMidRates();
+
+  const cryptoEntries = ratesData.rates.filter(r => r.coingeckoId);
+  const fiatEntries = ratesData.rates.filter(r => !r.coingeckoId);
+
+  const [ratesUSD, cryptoRates] = await Promise.all([
+    fiatEntries.length > 0 ? fetchMidRates() : Promise.resolve(null),
+    fetchCryptoRates(cryptoEntries.map(e => e.coingeckoId)),
+  ]);
 
   const spread = config.spreadPercent / 100;
   const updates = [];
 
-  for (const entry of ratesData.rates) {
+  for (const entry of fiatEntries) {
     const mid = vndPerUnit(ratesUSD, entry.code);
     if (!mid) continue;
-    const buy = roundRate(mid * (1 - spread));
-    const sell = roundRate(mid * (1 + spread));
-    updates.push({ code: entry.code, buy, sell });
+    updates.push({
+      code: entry.code,
+      buy: roundRate(mid * (1 - spread)),
+      sell: roundRate(mid * (1 + spread)),
+    });
+  }
+
+  for (const entry of cryptoEntries) {
+    const mid = cryptoRates?.[entry.coingeckoId]?.vnd;
+    if (!mid) continue;
+    updates.push({
+      code: entry.code,
+      buy: roundRate(mid * (1 - spread)),
+      sell: roundRate(mid * (1 + spread)),
+    });
   }
 
   storage.setRatesBulk(updates);
