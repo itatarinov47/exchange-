@@ -1,21 +1,104 @@
-НЯЧАНГ · ОБМЕН ВАЛЮТЫ
-Курс на сейчас, встреча у моря
-покупка —
-USD
-продажа —
-Отдаю
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Обменник · Нячанг</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
 
-⇄
-Получаю
-0
+<div class="app">
 
-Как получить
-Встреча Доставка
-Точка встречи
+  <header class="header">
+    <p class="eyebrow">НЯЧАНГ · ОБМЕН ВАЛЮТЫ</p>
+    <h1 class="title">Курс на сейчас,<br>встреча у моря</h1>
+  </header>
 
-Удобное время
-Контакты
-Телефон или WhatsApp Комментарий (необязательно)
-Оставить заявку
+  <section class="tide" aria-label="Текущий курс">
+    <svg class="tide__wave" viewBox="0 0 400 60" preserveAspectRatio="none">
+      <path class="tide__wave-path" d="M0,30 C50,10 100,50 150,30 C200,10 250,50 300,30 C350,10 400,50 400,30 L400,60 L0,60 Z"></path>
+    </svg>
+    <div class="tide__numbers">
+      <div class="tide__figure">
+        <span class="tide__label">покупка</span>
+        <span class="tide__value" id="tideBuy">—</span>
+      </div>
+      <div class="tide__currency-name" id="tideCurrencyName">USD</div>
+      <div class="tide__figure">
+        <span class="tide__label">продажа</span>
+        <span class="tide__value" id="tideSell">—</span>
+      </div>
+    </div>
+  </section>
 
-Курс актуален на момент заявки. Сумма к выдаче будет подтверждена при встрече.
+  <main class="card">
+
+    <div class="swap">
+      <div class="swap__row">
+        <label class="swap__label">Отдаю</label>
+        <div class="swap__field">
+          <input id="amountFrom" class="swap__amount" type="number" inputmode="decimal" placeholder="0" min="0" />
+          <select id="fromCurrency" class="swap__select"></select>
+        </div>
+      </div>
+
+      <button id="swapBtn" class="swap__flip" type="button" aria-label="Поменять валюты местами">⇄</button>
+
+      <div class="swap__row">
+        <label class="swap__label">Получаю</label>
+        <div class="swap__field">
+          <output id="amountTo" class="swap__amount swap__amount--result">0</output>
+          <select id="toCurrency" class="swap__select"></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="rate-note" id="rateNote"></div>
+
+    <div class="section">
+      <h2 class="section__title">Как получить</h2>
+      <div class="segmented" id="deliverySegmented">
+        <button class="segmented__btn is-active" data-type="meeting" type="button">Встреча</button>
+        <button class="segmented__btn" data-type="delivery" type="button">Доставка</button>
+      </div>
+
+      <div id="meetingFields" class="fields">
+        <label class="field-label">Точка встречи</label>
+        <div class="chips" id="meetingChips"></div>
+      </div>
+
+      <div id="deliveryFields" class="fields" hidden>
+        <label class="field-label" for="address">Адрес доставки</label>
+        <input id="address" class="text-input" type="text" placeholder="Улица, дом, район" />
+      </div>
+
+      <label class="field-label" for="time">Удобное время</label>
+      <input id="time" class="text-input" type="text" placeholder="Например: сегодня в 18:00" />
+    </div>
+
+    <div class="section">
+      <h2 class="section__title">Контакты</h2>
+      <label class="field-label" for="phone">Телефон или WhatsApp</label>
+      <input id="phone" class="text-input" type="tel" placeholder="+7 9XX XXX XX XX" />
+      <label class="field-label" for="comment">Комментарий (необязательно)</label>
+      <textarea id="comment" class="text-input" rows="2" placeholder="Например: банкноты не ниже 50 USD"></textarea>
+    </div>
+
+    <button id="submitBtn" class="submit-btn" type="button">Оставить заявку</button>
+    <p class="status-msg" id="statusMsg"></p>
+
+  </main>
+
+  <footer class="footer">Курс актуален на момент заявки. Сумма к выдаче будет подтверждена при встрече.</footer>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
+
