@@ -7,6 +7,7 @@ const { nanoid } = require('nanoid');
 const storage = require('./storage');
 const { validateInitData } = require('./telegramAuth');
 const { bot, notifyAdminNewOrder } = require('./bot');
+const { startAutoUpdate } = require('./rateUpdater');
 
 const app = express();
 app.use(cors());
@@ -14,10 +15,8 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-// В режиме разработки (без HTTPS/Telegram) можно отключить строгую проверку подписи
 const DEV_MODE = process.env.DEV_MODE === 'true';
 
-// Текущие курсы + точки встречи
 app.get('/api/rates', (req, res) => {
   res.json(storage.getRates());
 });
@@ -26,7 +25,6 @@ app.get('/api/meeting-points', (req, res) => {
   res.json(storage.getMeetingPoints());
 });
 
-// Создание заявки на обмен
 app.post('/api/orders', (req, res) => {
   const { initData, fromCurrency, toCurrency, amountFrom, delivery, phone, comment } = req.body;
 
@@ -64,7 +62,7 @@ app.post('/api/orders', (req, res) => {
     amountFrom: Number(amountFrom),
     amountTo,
     rate,
-    delivery, // { type: 'meeting'|'delivery', pointName? , address?, time }
+    delivery,
     phone,
     comment: comment || '',
     user: {
@@ -80,7 +78,6 @@ app.post('/api/orders', (req, res) => {
   res.json({ ok: true, order });
 });
 
-// Расчёт суммы обмена. base — валюта, в которой заданы buy/sell (VND).
 function calculateExchange(ratesData, fromCurrency, toCurrency, amountFrom) {
   const base = ratesData.base;
   const findRate = (code) => ratesData.rates.find(r => r.code === code);
@@ -89,13 +86,11 @@ function calculateExchange(ratesData, fromCurrency, toCurrency, amountFrom) {
   let amountTo = null;
 
   if (fromCurrency === base) {
-    // Клиент отдаёт донги, получает иностранную валюту -> используем курс "sell" (продажа валюты клиенту)
     const r = findRate(toCurrency);
     if (!r) return { rate: null, amountTo: null };
     rate = r.sell;
     amountTo = Number(amountFrom) / r.sell;
   } else if (toCurrency === base) {
-    // Клиент отдаёт иностранную валюту, получает донги -> курс "buy" (покупка валюты у клиента)
     const r = findRate(fromCurrency);
     if (!r) return { rate: null, amountTo: null };
     rate = r.buy;
@@ -111,10 +106,15 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Сервер запущен на порту ${PORT}`);
 });
+
 bot.start({
   onStart: () => console.log('✅ Бот запущен (long polling)'),
 }).catch((err) => {
   console.error('⚠️ Не удалось запустить бота (сервер продолжает работать):', err.message);
 });
+
+const ONE_HOUR = 60 * 60 * 1000;
+startAutoUpdate(ONE_HOUR);
+
 
 
