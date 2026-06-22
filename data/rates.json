@@ -2,6 +2,7 @@
   "base": "VND",
   "updatedAt": "2026-06-21T08:00:00.000Z",
   "rates": [
+    { "code": "KZT", "name": "Тенге", "buy": 47, "sell": 50 }
     { "code": "USD", "name": "Доллар США", "buy": 25300, "sell": 25650 },
     { "code": "EUR", "name": "Евро", "buy": 27100, "sell": 27550 },
     { "code": "RUB", "name": "Рубль", "buy": 295, "sell": 312 },
