@@ -162,4 +162,11 @@ async function notifyAdminNewOrder(order) {
   });
 }
 
+// Обработка ошибок бота: не даём упасть всему процессу,
+// например при временном конфликте getUpdates (409) при перезапуске.
+bot.catch((err) => {
+  console.error('⚠️ Ошибка в работе бота (процесс продолжает работать):', err.message);
+});
+
 module.exports = { bot, notifyAdminNewOrder };
+
