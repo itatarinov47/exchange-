@@ -16,7 +16,6 @@ function isAdmin(ctx) {
   return String(ctx.from?.id) === ADMIN_CHAT_ID;
 }
 
-// /start — приветствие + кнопка открытия мини-аппа
 bot.command('start', async (ctx) => {
   const keyboard = new Keyboard()
     .webApp('💱 Открыть обменник', WEBAPP_URL)
@@ -38,13 +37,16 @@ bot.command('help', async (ctx) => {
     (isAdmin(ctx)
       ? '\nКоманды администратора:\n' +
         '/rates — текущие курсы\n' +
-        '/setrate USD 25300 25650 — задать курс покупки/продажи\n' +
+        '/setrate USD 25300 25650 — задать курс вручную\n' +
+        '/autorate — статус автообновления курсов\n' +
+        '/autorate on / off — включить/выключить автообновление\n' +
+        '/setspread 1.5 — задать наценку в % (покупка/продажа от рыночного курса)\n' +
+        '/updatenow — обновить курсы прямо сейчас\n' +
         '/pending — список заявок в ожидании\n'
       : '')
   );
 });
 
-// ---- Админ: просмотр курсов ----
 bot.command('rates', async (ctx) => {
   if (!isAdmin(ctx)) return;
   const data = storage.getRates();
@@ -54,7 +56,6 @@ bot.command('rates', async (ctx) => {
   await ctx.reply('Текущие курсы:\n\n' + lines.join('\n'));
 });
 
-// ---- Админ: установка курса ----
 bot.command('setrate', async (ctx) => {
   if (!isAdmin(ctx)) return;
   const parts = ctx.message.text.trim().split(/\s+/).slice(1);
@@ -71,10 +72,55 @@ bot.command('setrate', async (ctx) => {
   if (!updated) {
     return ctx.reply(`Валюта ${code.toUpperCase()} не найдена в списке.`);
   }
-  await ctx.reply(`Курс обновлён: ${updated.code} — покупка ${buy}, продажа ${sell}`);
+  await ctx.reply(
+    `Курс обновлён вручную: ${updated.code} — покупка ${buy}, продажа ${sell}\n` +
+    `⚠️ При следующем автообновлении он будет пересчитан заново, если автообновление включено.`
+  );
 });
 
-// ---- Админ: заявки в ожидании ----
+bot.command('autorate', async (ctx) => {
+  if (!isAdmin(ctx)) return;
+  const arg = ctx.message.text.trim().split(/\s+/)[1];
+  if (arg === 'on') {
+    storage.setConfig({ autoUpdateEnabled: true });
+    return ctx.reply('✅ Автообновление курсов включено (раз в час).');
+  }
+  if (arg === 'off') {
+    storage.setConfig({ autoUpdateEnabled: false });
+    return ctx.reply('⏸ Автообновление курсов выключено. Курсы меняются только командой /setrate.');
+  }
+  const config = storage.getConfig();
+  await ctx.reply(
+    `Автообновление: ${config.autoUpdateEnabled ? 'включено ✅' : 'выключено ⏸'}\n` +
+    `Спред (наценка): ${config.spreadPercent}%\n\n` +
+    `Команды:\n/autorate on — включить\n/autorate off — выключить\n/setspread 1.5 — задать спред в %`
+  );
+});
+
+bot.command('setspread', async (ctx) => {
+  if (!isAdmin(ctx)) return;
+  const arg = ctx.message.text.trim().split(/\s+/)[1];
+  const value = Number(arg);
+  if (Number.isNaN(value) || value < 0 || value > 20) {
+    return ctx.reply('Формат: /setspread 1.5 (число от 0 до 20, в процентах)');
+  }
+  storage.setConfig({ spreadPercent: value });
+  await ctx.reply(`Спред установлен: ${value}%. Применится при следующем автообновлении (или сразу через /updatenow).`);
+});
+
+bot.command('updatenow', async (ctx) => {
+  if (!isAdmin(ctx)) return;
+  await ctx.reply('Обновляю курсы из внешнего источника…');
+  try {
+    const { updateRatesNow } = require('./rateUpdater');
+    const updates = await updateRatesNow();
+    const lines = updates.map(u => `${u.code} — покупка ${u.buy.toLocaleString('ru-RU')} / продажа ${u.sell.toLocaleString('ru-RU')}`);
+    await ctx.reply('✅ Курсы обновлены:\n\n' + lines.join('\n'));
+  } catch (e) {
+    await ctx.reply(`⚠️ Не удалось обновить курсы: ${e.message}`);
+  }
+});
+
 bot.command('pending', async (ctx) => {
   if (!isAdmin(ctx)) return;
   const orders = storage.getOrders().filter(o => o.status === 'pending');
@@ -112,7 +158,6 @@ function buildOrderKeyboard(orderId) {
     .text('❌ Отклонить', `reject:${orderId}`);
 }
 
-// ---- Обработка кнопок подтверждения/отклонения ----
 bot.on('callback_query:data', async (ctx) => {
   if (!isAdmin(ctx)) return ctx.answerCallbackQuery({ text: 'Только администратор может это делать.' });
 
@@ -130,7 +175,6 @@ bot.on('callback_query:data', async (ctx) => {
   await ctx.editMessageText(formatOrderText({ ...order, status: newStatus }));
   await ctx.answerCallbackQuery({ text: newStatus === 'confirmed' ? 'Подтверждено' : 'Отклонено' });
 
-  // Уведомляем клиента
   try {
     if (newStatus === 'confirmed') {
       const deliveryLine = order.delivery.type === 'meeting'
@@ -151,7 +195,6 @@ bot.on('callback_query:data', async (ctx) => {
   }
 });
 
-// Отправка новой заявки администратору (вызывается из server.js)
 async function notifyAdminNewOrder(order) {
   if (!ADMIN_CHAT_ID) {
     console.warn('ADMIN_CHAT_ID не задан — заявка не отправлена администратору.');
@@ -162,11 +205,10 @@ async function notifyAdminNewOrder(order) {
   });
 }
 
-// Обработка ошибок бота: не даём упасть всему процессу,
-// например при временном конфликте getUpdates (409) при перезапуске.
 bot.catch((err) => {
   console.error('⚠️ Ошибка в работе бота (процесс продолжает работать):', err.message);
 });
 
 module.exports = { bot, notifyAdminNewOrder };
+
 
