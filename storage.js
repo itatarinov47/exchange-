@@ -5,6 +5,18 @@ const DATA_DIR = path.join(__dirname, 'data');
 const RATES_FILE = path.join(DATA_DIR, 'rates.json');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
 const MEETING_FILE = path.join(DATA_DIR, 'meeting-points.json');
+const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+
+const DEFAULT_CONFIG = {
+  autoUpdateEnabled: true,
+  spreadPercent: 1.5,
+};
+
+function ensureConfigFile() {
+  if (!fs.existsSync(CONFIG_FILE)) {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(DEFAULT_CONFIG, null, 2), 'utf8');
+  }
+}
 
 function ensureOrdersFile() {
   if (!fs.existsSync(ORDERS_FILE)) {
@@ -20,7 +32,6 @@ function writeJSON(file, data) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
 }
 
-// ---- Rates ----
 function getRates() {
   return readJSON(RATES_FILE);
 }
@@ -36,12 +47,36 @@ function setRate(code, buy, sell) {
   return entry;
 }
 
-// ---- Meeting points ----
+function setRatesBulk(updates) {
+  const data = getRates();
+  for (const u of updates) {
+    const entry = data.rates.find(r => r.code === u.code.toUpperCase());
+    if (entry) {
+      entry.buy = u.buy;
+      entry.sell = u.sell;
+    }
+  }
+  data.updatedAt = new Date().toISOString();
+  writeJSON(RATES_FILE, data);
+  return data;
+}
+
+function getConfig() {
+  ensureConfigFile();
+  return { ...DEFAULT_CONFIG, ...readJSON(CONFIG_FILE) };
+}
+
+function setConfig(partial) {
+  const current = getConfig();
+  const updated = { ...current, ...partial };
+  writeJSON(CONFIG_FILE, updated);
+  return updated;
+}
+
 function getMeetingPoints() {
   return readJSON(MEETING_FILE);
 }
 
-// ---- Orders ----
 function getOrders() {
   ensureOrdersFile();
   return readJSON(ORDERS_FILE);
@@ -72,9 +107,14 @@ function updateOrderStatus(id, status) {
 module.exports = {
   getRates,
   setRate,
+  setRatesBulk,
+  getConfig,
+  setConfig,
   getMeetingPoints,
   getOrders,
   saveOrder,
   getOrder,
   updateOrderStatus,
 };
+
+
