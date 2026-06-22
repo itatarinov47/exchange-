@@ -8,6 +8,6 @@
     { "code": "RUB", "name": "Рубль", "buy": 295, "sell": 312 },
     { "code": "CNY", "name": "Юань", "buy": 3480, "sell": 3560 },
     { "code": "KRW", "name": "Вона", "buy": 17.6, "sell": 18.3 },
-    { "code": "USDT", "name": "USDT (Tether)", "buy": 25400, "sell": 25700, "coingeckoId": "tether" },
+    { "code": "USDT", "name": "USDT (Tether)", "buy": 25400, "sell": 25700, "coingeckoId": "tether" }
   ]
 }
